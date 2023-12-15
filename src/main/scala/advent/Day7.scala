@@ -1,32 +1,59 @@
 package advent
 
+import scala.annotation.tailrec
+import scala.io.Source
+
 object Day7 {
 
-    val cards: List[Char] = List('A', 'K', 'Q', 'J', 'T', '9', '8', '7', '6', '5', '4', '3', '2')
+    val cards: Map[Char, Int] = List('J', '2', '3', '4', '5', '6', '7', '8', '9', 'T', 'Q', 'K', 'A').zipWithIndex.toMap
 
     object HandTypes extends Enumeration {
         type HandType = Value
         val  HighCard, OnePair, TwoPair, ThreeOfAKind, FullHouse, FourOfAKind, FiveOfAKind = Value
     }
 
-    case class Hand(values: List[Char], bid: Int) {
+    case class Hand(values: List[Char], bid: Long) extends Ordered[Hand] {
 
-        def nOfAKind(n: Int, exclude: Option[Char] = None): Option[Char] = {
-            val cardsWithExclusion = exclude match {
-                case Some(exclusionChar) => cards.filterNot(_ == exclusionChar)
-                case None => cards
+        @tailrec
+        private def compareAtIndex(other: Hand, idx: Int = 0): Int = {
+            cards(values(idx)).compare(cards(other.values(idx))) match {
+                case n if n == 0 => compareAtIndex(other, idx + 1)
+                case n => n
             }
-            cardsWithExclusion.find(card => values.count(value => value == card) == n)
         }
-        def isNOfAKind(n: Int) = nOfAKind(n).isDefined
-        def isFullHouse = isNOfAKind(3) && isNOfAKind(2)
+        def compare(that: Hand): Int = {
+            if (highestType > that.highestType) 1
+            else if (highestType < that.highestType) -1
+            else compareAtIndex(that)
+        }
 
-        def isTwoPair = {
+        private def nOfAKind(n: Int, exclude: List[Char] = List.empty, subJs: Boolean = true): Option[Char] = {
+            val cwe = cards.toList.sortBy(_._2).map(_._1).reverse.filterNot(c => (exclude :+ 'J').contains(c))
+            println(f"check for $n in $cwe")
+            cwe.find{
+                card => values.map {
+                    case x: Char if x == 'J' && subJs => card
+                    case x: Char => x
+                }.count(value => value == card) == n
+            }
+        }
+        private def isNOfAKind(n: Int) = nOfAKind(n).isDefined
+        private def isFullHouse = {
+            (for {
+                threeChar <- nOfAKind(3)
+                twoChar <- nOfAKind(2, List(threeChar), subJs = false)
+            } yield {
+                println(s"three: ${threeChar}, two: $twoChar")
+                twoChar
+            }).isDefined
+        }
+
+        private def isTwoPair = {
             val firstPairCharOpt = nOfAKind(2)
             println(s"firstPairChar $firstPairCharOpt in $values")
             firstPairCharOpt match {
-                case o: Some[Char] => {
-                    val secPair = nOfAKind(2, o)
+                case Some(c) => {
+                    val secPair = nOfAKind(2, List(c), subJs = false)
                     println(s"secPairChar $secPair in $values")
                     secPair.isDefined
                 }
@@ -34,7 +61,7 @@ object Day7 {
             }
         }
 
-        val highestType = {
+        val highestType: HandTypes.HandType = {
             if (isNOfAKind(5)) HandTypes.FiveOfAKind
             else if (isNOfAKind(4)) HandTypes.FourOfAKind
             else if (isFullHouse) HandTypes.FullHouse
@@ -52,7 +79,9 @@ object Day7 {
                         |KTJJT 220
                         |QQQJA 483""".stripMargin.split("\n").toList
 
-    def parseHands(rawLines: List[String]) = {
+    val prodHandRaw = Source.fromResource("day7_1.txt").getLines.toList
+
+    private def parseHands(rawLines: List[String]): List[Hand] = {
         rawLines.map{
             line => 
                 line.split(" ").toList match {
@@ -61,8 +90,18 @@ object Day7 {
             }
     }
 
-    def rankedHands(hands: List[Hand]): List[Hand] = ???
-
-    def run = parseHands(testHandRaw).map(_.highestType)
+    def run = {
+        //Hand(List('J', '8', '8', '8', '8'), 774).highestType
+        //'8' == '8'
+        parseHands(prodHandRaw).sorted.zipWithIndex.map{
+            case (hand, idx) => hand.bid * (idx + 1)
+        }.sum
+        /*println(prodHandRaw.length)*/
+        /*parseHands(prodHandRaw).sorted.map{
+            x =>
+                println((x, x.highestType))
+            x
+        }*/
+    }
 
 }
