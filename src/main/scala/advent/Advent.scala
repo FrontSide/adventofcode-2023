@@ -2,7 +2,7 @@ package advent
 
 object Advent {
   def main(args: Array[String]) = {
-    println(Day8.run)
+    println(Day10.run)
     //println("test")
   }
 }
