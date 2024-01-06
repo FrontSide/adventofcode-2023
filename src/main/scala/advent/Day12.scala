@@ -1,5 +1,7 @@
 package advent
 
+import scala.collection.IterableOnce.iterableOnceExtensionMethods
+import scala.collection.mutable
 import scala.io.Source
 
 object Day12 {
@@ -15,9 +17,13 @@ object Day12 {
 
   case class Row(springs: String, damageGroups: List[Int]) {
 
-    val possibilities = 2
 
-    val reg = {
+    lazy val expanded =
+      Row(
+        List(springs, springs, springs, springs, springs).mkString("?"),
+        List(damageGroups, damageGroups, damageGroups, damageGroups, damageGroups).flatten)
+
+    lazy val reg = {
       val groupReg = damageGroups
         .map { groupCount =>
           s"[#]{$groupCount}[.]"
@@ -26,30 +32,6 @@ object Day12 {
       s"[^#]*$groupReg*$$".r
     }
 
-    def wouldMatchGroups(possibleSprings: String): Boolean =
-      reg.matches(possibleSprings)
-
-    def withReplacedUnknown(replacement: String): String = {
-      def replace(orig: String, repl: String): String = {
-        if (orig.isEmpty) ""
-        else {
-          if (orig.head == '?') repl.head +: replace(orig.tail, repl.tail)
-          else orig.head +: replace(orig.tail, repl)
-        }
-      }
-      replace(springs, replacement)
-    }
-
-    val permutationsCount =
-      (0 to math.pow(2, springs.count(_ == '?')).toInt - 1)
-        .map { n =>
-          val binString = n.toBinaryString
-          val padding = "0".repeat(springs.count(_ == '?') - binString.length)
-          s"$padding$binString".replace('0', '.').replace('1', '#')
-        }
-        .map(withReplacedUnknown)
-        .toList
-        .count(wouldMatchGroups)
   }
 
   def parseRows(raw: List[String]): List[Row] = {
@@ -60,18 +42,44 @@ object Day12 {
         .map { _match =>
           (_match.group(1), _match.group(2))
         }
-        .collect { x =>
-          x match {
-            case (springs: String, damageGroups: String) =>
-              println(s"springs ${springs} damageGroups ${damageGroups}")
-              Row(springs, damageGroups.split(',').map(_.toInt).toList)
-          }
+        .collect {
+          case (springs: String, damageGroups: String) =>
+            println(s"springs ${springs} damageGroups ${damageGroups}")
+            Row(springs, damageGroups.split(',').map(_.toInt).toList)
         }
         .toList
     }
-
   }
 
-  val run = parseRows(prodInput).map(_.permutationsCount).sum
+    //Dynamic programming / momoisation
+    //store all already computed combinations for any given "Row" in a hash map
+    var mm: mutable.Map[Row, Long] = mutable.Map.empty
+
+    /*I solved the first part myself (code deleted) but as it wasn't fast enough to solve part 2 I used the solution from
+    * https://www.youtube.com/watch?v=g3Ms5e7Jdqo */
+    def countPossibilities(row: Row): Long = {
+      mm.get(row) match {
+        case Some(res) => res
+        case None =>
+          val res = (row.springs, row.damageGroups) match {
+            case (s, gs) if s.isEmpty && gs.isEmpty => 1
+            case (s, gs) if !s.contains("#") && gs.isEmpty => 1
+            case (s, gs) if s.nonEmpty && gs.nonEmpty =>
+              val resifdot: Option[Long] = Option.when(".?".contains(s.head))(countPossibilities(Row(s.tail, gs)))
+              val resifqm: Option[Long] = Option.when("#?".contains(s.head)) {
+                Option.when(gs.head <= s.length && !s.substring(0, gs.head).contains('.') && (gs.head == s.length || s.charAt(gs.head) != '#')) {
+                  if (s.length < gs.head + 1) countPossibilities(Row(s.substring(gs.head), gs.tail))
+                  else countPossibilities(Row(s.substring(gs.head + 1), gs.tail))
+                }
+              }.flatten
+              resifdot.getOrElse(0L) + resifqm.getOrElse(0L)
+            case _ => 0
+          }
+          mm(row) = res
+          res
+      }
+    }
+
+  lazy val run = parseRows(prodInput).map(_.expanded).map(countPossibilities).sum
 
 }
