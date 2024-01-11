@@ -1,6 +1,8 @@
 package advent
 
 import scala.annotation.tailrec
+import scala.collection.immutable.HashMap
+import scala.collection.{immutable, mutable}
 import scala.io.Source
 
 object Day14 {
@@ -22,14 +24,12 @@ object Day14 {
 
   def rotateLeft(inp: List[String]): List[String] = inp.transpose.reverse.map(_.mkString)
 
-  def tiltRight(inp: List[String]): List[String] = {
-    inp.map{
+  def tiltRight(inp: List[String]): List[String] = inp.map{
       line =>
-        line.reverse.split("#").map{ // [.] [.O.] [O...]
-          section =>
-            section.replace(".", "").padTo(section.length, ".").mkString
-        }.mkString("#").padTo(line.length, "#").mkString.reverse
-    }
+          line.reverse.split("#").map { // [.] [.O.] [O...]
+            section =>
+                  section.replace(".", "").padTo(section.length, ".").mkString
+          }.mkString("#").padTo(line.length, "#").mkString.reverse
   }
 
   def load(inp: List[String]): Int = {
@@ -39,15 +39,31 @@ object Day14 {
     }.sum
   }
 
-  @tailrec
-  def cycle(inp: List[String], times: Int): List[String] = {
-    if (times == 0) inp
-    else {
-      if (times % 100000 == 0) println(s"cycles left: $times")
-      cycle((1 to 4).foldLeft(inp){
-        (map, _) => tiltRight(rotateRight(map))
-      }, times - 1)
+  def cycle(inpOrig: List[String], totalTimes: Long): List[String] = {
+
+    @tailrec
+    def innerCycle(inp: List[String], times: Long, mem: HashMap[String, (List[String], Long)] = HashMap.empty[String, (List[String], Long)]): List[String] = {
+      if (times == 0) inp
+      else {
+        val inpS = inp.mkString
+        val currentCycle = totalTimes - times
+        val (resAfterCycle, cyclesLeft, nextMem) = mem.get(inpS) match {
+          case Some((res, foundAt)) =>
+            val repeatLength = currentCycle - foundAt
+            val rem = ((totalTimes - foundAt) % repeatLength) - 1
+            (res, rem, HashMap.empty[String, (List[String], Long)])
+          case None =>
+            val res = (1 to 4).foldLeft(inp) {
+              (map, _) => tiltRight(rotateRight(map))
+            }
+            (res, times - 1, mem + (inpS -> (res, currentCycle)))
+        }
+        innerCycle(resAfterCycle, cyclesLeft, nextMem)
+      }
     }
+
+    innerCycle(inpOrig, totalTimes)
+
   }
 
 
