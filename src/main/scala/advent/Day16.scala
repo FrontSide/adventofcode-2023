@@ -21,13 +21,18 @@ object Day16 {
 
   val (west, south, east, north) = (1, 2, 3, 4)
 
+  def allSources(map: List[String]): Set[((Int, Int), Int)] = {
+    map.indices.toList.flatMap(y => Set(((0, y), west), ((map.head.length - 1, y), east))).toSet ++
+      (0 until map.head.length).toList.flatMap(x => Set(((x, 0), north), ((x, map.length - 1), south))).toSet
+  }
+
   private def nextIdx(idx: (Int, Int), sourceDirection: Int): (Int, Int) = {
     if (sourceDirection == west) (idx._1 + 1, idx._2)
     else if (sourceDirection == south) (idx._1, idx._2 - 1)
     else if (sourceDirection == east) (idx._1 - 1, idx._2)
     else (idx._1, idx._2 + 1)
   }
-  def light(map: List[String]): Set[((Int, Int), Int)] = {
+  def light(source: ((Int, Int), Int), map: List[String]): Set[((Int, Int), Int)] = {
     @tailrec
     def innerLight(sources: Set[((Int, Int), Int)], passed: Set[((Int, Int), Int)]): Set[((Int, Int), Int)] = {
       val nextSources = sources.flatMap {
@@ -52,6 +57,6 @@ object Day16 {
       if (nextSources.isEmpty) passed ++ sources
       else innerLight(nextSources, passed ++ sources)
     }
-    innerLight(Set(((0, 0), west)), Set.empty)
+    innerLight(Set(source), Set.empty)
   }
 }
