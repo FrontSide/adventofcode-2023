@@ -1,5 +1,6 @@
 package advent
 
+import javax.print.attribute.standard.Destination
 import scala.collection.mutable
 import scala.io.Source;
 
@@ -22,42 +23,22 @@ object Day17 {
 
   val prodInput = Source.fromResource("day17_1.txt").getLines.toList
 
-  val (left, top) = (1, 2)
-
-  case class Node(weightTo: Int, idx: (Int, Int)) {
-    val x = idx._2
-    val y = idx._1
-    def neighbours(inp: List[String]): Set[(Node, Int)] = Set(((x + 1, y), left), ((x, y + 1), top)).map {
-        case ((x, y), sourceDir) => (x, y, inp.lift(y).flatMap(_.lift(x)), sourceDir)
-      }.collect {
-        case (x, y, Some(c), sourceDir) => (Node(c.asDigit, (x, y)), sourceDir)
-      }
+  def getEdgeTo(inp: List[String], source: (Int, Int), destination: (Int, Int)) = inp.lift(destination._2).flatMap(_.lift(destination._1)).map{
+    c =>Dijkstra.Edge(source, c.asDigit, destination)
   }
 
-  def fmtWithPath(inp: List[String], visitedNodes: List[Node]) = inp.zipWithIndex.map{
-      case (line, y) => line.zipWithIndex.map{
-        case (c, x) => if (visitedNodes.map(_.idx).contains((x, y))) "X"
-        else c
-      }.mkString
-    }.mkString("\n")
+  def toEdges(inp: List[String]): Set[Dijkstra.Edge[(Int, Int)]] = {
 
-  def dijks(inp: List[String]): List[Node] = {
-
-    val sptSet: mutable.ListBuffer[Node] = mutable.ListBuffer.empty
-    def run(node: Node, sourceDirection: Int, straigthSeqLength: Int): Unit = {
-      if (straigthSeqLength > 4) ()
-      else {
-        sptSet.append(node)
-        node.neighbours(inp).filter(neighbour => !sptSet.map(_.idx).contains(neighbour._1.idx)).map(origNeighbour => (origNeighbour._1.copy(weightTo = origNeighbour._1.weightTo + node.weightTo), origNeighbour._2)).toList.sortBy(_._1.weightTo).foreach{
-          case (nextNode, nextSourceDir) =>
-            val nextStraightSeqLen = if (sourceDirection == nextSourceDir) straigthSeqLength + 1 else 0
-            run(nextNode, nextSourceDir, nextStraightSeqLen)
-        }
-      }
+    def neighbourEdges(x: Int, y: Int) = List((x + 1, y), (x, y + 1)).map {
+      n => getEdgeTo(inp, (x, y), (n._1, n._2))
+    }.collect {
+      case Some(edge) => edge
     }
-    run(Node(0, (0, 0)), left, 1)
-    sptSet.toList
+
+    inp.indices.flatMap(y => inp.head.indices.toList.flatMap(x => neighbourEdges(x, y))).toSet
 
   }
+
+  val path = Dijkstra.shortestPath((0, 0), (12, 12), toEdges(testInput))
 
 }
